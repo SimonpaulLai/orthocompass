@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>OrthoCompass — 急性外傷評估</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Design Tokens ─────────────────────────────── */
+    :root {
+      /* Deep-sea 幽藍 — pure cool blue, no purple cast */
+      --bg:          #0a1628;
+      --bg-panel:    #0e1f38;
+      --bg-card:     #162a4a;
+      --bg-input:    #0e1f38;
+      --text:        #dde3f2;
+      --text-2:      #5a80b0;
+      --text-3:      #2e4a70;
+      /* Brand */
+      --teal:        #3ab8a4;
+      --teal-glow:   rgba(58,184,164,.14);
+      --teal-border: rgba(58,184,164,.26);
+      /* Status */
+      --amber:       #d4855a;
+      --amber-bg:    rgba(212,133,90,.12);
+      --danger:      #c05252;
+      --danger-bg:   rgba(192,82,82,.13);
+      --success:     #4aaa7f;
+      /* Surfaces */
+      --border:      rgba(255,255,255,.06);
+      --border-2:    rgba(255,255,255,.1);
+      /* Shape — Apple-ish radii */
+      --r-sm: 10px; --r: 14px; --r-lg: 18px;
+      /* Layout */
+      --tab-h:    48px;
+      --header-h: 52px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Page System ───────────────────────────────── */
+    .page { display: none; }
+    .page.active { display: flex; }
+
+    /* ── Animations ────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes bubbleIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes dotBounce {
+      0%,80%,100% { transform: translateY(0); opacity: .4; }
+      40%         { transform: translateY(-5px); opacity: 1; }
+    }
+    @keyframes ecgSweep {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: -253; }
+    }
+    @keyframes ecgSweepLogo {
+      from { stroke-dashoffset: 0; }
+      to   { stroke-dashoffset: -306; }
+    }
+    @keyframes pulseDot {
+      0%,100% { opacity: .3; transform: scale(1); }
+      50%     { opacity: 1;  transform: scale(1.35); }
+    }
+    @keyframes pulseDanger {
+      0%,100% { box-shadow: 0 0 0 0    rgba(192,82,82,.5); }
+      50%     { box-shadow: 0 0 0 14px rgba(192,82,82,0); }
+    }
+    @keyframes edgeGlow {
+      0%,100% {
+        box-shadow:
+          inset 0 0  70px  0px rgba(90, 60,200,.10),
+          inset 0 0  40px  0px rgba(160,80,255,.07);
+      }
+      50% {
+        box-shadow:
+          inset 0 0 160px 24px rgba(90, 60,200,.26),
+          inset 0 0  90px 10px rgba(160,80,255,.18);
+      }
+    }
+    @keyframes flashHighlight {
+      0%,100% { background: transparent; }
+      20%,80% { background: rgba(212,185,100,.12); border-radius: 10px; }
+    }
+    @keyframes ringPulse {
+      0%   { transform: translate(-50%,-50%) scale(.85); opacity: .7; }
+      100% { transform: translate(-50%,-50%) scale(1.65); opacity: 0; }
+    }
+    @keyframes tabDotIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
+    /* ══════════════════════════════════════════════
+       GATEWAY
+    ══════════════════════════════════════════════ */
+    #gateway {
+      min-height: 100dvh;
+      overflow-y: auto;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: calc(env(safe-area-inset-top, 0px) + 2.5rem) 1.5rem
+               calc(env(safe-area-inset-bottom, 0px) + 2rem);
+      position: relative;
+      animation: edgeGlow 4s ease-in-out infinite;
+    }
+
+    .gateway-inner {
+      position: relative; z-index: 1;
+      width: 100%;
+      display: flex; flex-direction: column;
+      align-items: center;
+    }
+
+    /* Brand */
+    .gateway-brand {
+      text-align: center;
+      margin-bottom: 2.75rem;
+      animation: fadeUp .5s ease both;
+    }
+    .gateway-logo h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(2.2rem, 7vw, 3rem);
+      letter-spacing: -.025em;
+      color: var(--text);
+      line-height: 1.1;
+    }
+    .gateway-logo h1 em { font-style: normal; color: var(--teal); }
+
+    .logo-ecg {
+      display: block;
+      margin: .85rem auto 0;
+      width: 200px; height: 22px;
+      color: var(--teal); opacity: .45;
+      overflow: visible;
+    }
+    .ecg-base-logo { opacity: .2; }
+    .ecg-pulse-logo {
+      stroke-dasharray: 55 251;
+      animation: ecgSweepLogo 3.2s ease-in-out infinite;
+      animation-delay: .4s;
+    }
+    .gateway-tagline {
+      margin-top: .6rem;
+      font-size: .68rem;
+      color: var(--text-3);
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .gateway-brand-desc { display: none; }
+
+    /* Actions */
+    .gateway-actions { width: 100%; max-width: 400px; }
+
+    .gateway-prompt {
+      font-size: .92rem;
+      color: var(--text-2);
+      margin-bottom: .9rem;
+      animation: fadeUp .5s ease .08s both;
+    }
+
+    /* Triage cards — Apple-style list cells */
+    .triage-card {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 1.1rem 1.3rem;
+      text-align: left; cursor: pointer;
+      display: flex; align-items: center; gap: .95rem;
+      margin-bottom: .65rem;
+      position: relative; overflow: hidden;
+      transition: transform .16s cubic-bezier(.4,0,.2,1),
+                  box-shadow .16s, border-color .16s;
+      min-height: 72px;
+    }
+    .triage-card::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px; border-radius: 0 2px 2px 0;
+    }
+    .triage-card.emergency::before { background: var(--danger); }
+    .triage-card.assess::before    { background: var(--teal); }
+
+    .triage-card:active { transform: scale(.982); }
+    .triage-card.emergency:hover {
+      border-color: rgba(192,82,82,.3);
+      box-shadow: 0 6px 24px rgba(192,82,82,.16);
+    }
+    .triage-card.assess:hover {
+      border-color: var(--teal-border);
+      box-shadow: 0 6px 24px var(--teal-glow);
+    }
+    .triage-card.emergency { animation: fadeUp .5s ease .14s both; }
+    .triage-card.assess    { animation: fadeUp .5s ease .22s both; }
+
+    .card-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; flex-shrink: 0;
+    }
+    .emergency .card-icon { background: var(--danger-bg); }
+    .assess    .card-icon { background: var(--teal-glow); }
+
+    .card-text { flex: 1; }
+    .card-title { font-size: .95rem; font-weight: 600; letter-spacing: -.01em; margin-bottom: .14rem; }
+    .emergency .card-title { color: #e07070; }
+    .assess    .card-title { color: var(--teal); }
+    .card-desc { font-size: .8rem; color: var(--text-2); line-height: 1.45; }
+
+    .gateway-disclaimer {
+      font-size: .68rem; color: rgba(255,255,255,.35);
+      text-align: center; margin-top: 1.5rem;
+      line-height: 1.9;
+      animation: fadeUp .5s ease .3s both;
+    }
+
+    /* Desktop 2-col */
+    @media (min-width: 860px) {
+      .gateway-inner {
+        flex-direction: row; align-items: center;
+        justify-content: center; gap: 5rem;
+        max-width: 900px; margin: 0 auto;
+      }
+      .gateway-brand { text-align: left; flex: 0 0 300px; margin-bottom: 0; }
+      .gateway-logo h1 { font-size: 3rem; }
+      .logo-ecg { margin-left: 0; }
+      .gateway-tagline { text-align: left; }
+      .gateway-actions { flex: 0 0 400px; }
+      .gateway-brand-desc {
+        display: block; margin-top: 1.2rem;
+        font-size: .92rem; color: var(--text-2); line-height: 1.7;
+      }
+    }
+
+    /* ══════════════════════════════════════════════
+       EMERGENCY PAGE
+    ══════════════════════════════════════════════ */
+    #emergency-page {
+      min-height: 100dvh; overflow-y: auto;
+      flex-direction: column; align-items: center; justify-content: flex-start;
+      padding: calc(env(safe-area-inset-top, 0px) + 2.5rem) 1.5rem
+               calc(env(safe-area-inset-bottom, 0px) + 2rem);
+      background: #0e0a0a; position: relative;
+    }
+    #emergency-page::after {
+      content: '';
+      position: absolute; top: 40%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 480px; height: 480px; pointer-events: none;
+      background: radial-gradient(ellipse, rgba(192,82,82,.11) 0%, transparent 62%);
+    }
+
+    .emg-inner {
+      position: relative; z-index: 1;
+      max-width: 380px; width: 100%;
+      display: flex; flex-direction: column; align-items: center;
+    }
+
+    .emg-pulse-wrap {
+      position: relative; width: 76px; height: 76px;
+      margin-bottom: 1.5rem;
+    }
+    .emg-ring {
+      position: absolute; top: 50%; left: 50%;
+      width: 76px; height: 76px; border-radius: 50%;
+      border: 1.5px solid rgba(192,82,82,.42);
+      animation: ringPulse 1.8s ease-out infinite;
+    }
+    .emg-ring:nth-child(2) { animation-delay: .6s; }
+    .emg-ring:nth-child(3) { animation-delay: 1.2s; }
+
+    .emg-icon {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      width: 60px; height: 60px; border-radius: 15px;
+      background: var(--danger-bg); border: 1px solid rgba(192,82,82,.28);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.65rem; z-index: 1;
+    }
+
+    .emg-inner h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.85rem; color: #e07070;
+      margin-bottom: 1.25rem; text-align: center; letter-spacing: -.02em;
+    }
+
+    .call-btn {
+      display: flex; align-items: center;
+      justify-content: center; gap: .6rem;
+      width: 100%; background: var(--danger); color: #fff;
+      font-size: 1.1rem; font-weight: 700;
+      padding: 1.05rem; border-radius: var(--r-lg);
+      text-decoration: none; margin-bottom: 1.75rem;
+      animation: pulseDanger 2s ease-in-out infinite;
+      letter-spacing: .01em; min-height: 54px;
+    }
+
+    .emg-section {
+      width: 100%;
+      background: rgba(255,255,255,.025);
+      border: 1px solid var(--border); border-radius: var(--r);
+      padding: 1rem 1.1rem; margin-bottom: .8rem;
+    }
+    .emg-section-title {
+      font-size: .67rem; font-weight: 600;
+      color: var(--text-3); text-transform: uppercase;
+      letter-spacing: .1em; margin-bottom: .72rem;
+    }
+    .emg-step {
+      display: flex; align-items: flex-start;
+      gap: .72rem; margin-bottom: .62rem;
+    }
+    .emg-step:last-child { margin-bottom: 0; }
+    .step-num {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(192,82,82,.2);
+      border: 1px solid rgba(192,82,82,.3);
+      color: #e07070; font-size: .68rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: .14rem;
+    }
+    .emg-step span:last-child { font-size: .86rem; color: var(--text-2); line-height: 1.55; }
+
+    .emg-dispatcher {
+      width: 100%; background: rgba(255,255,255,.02);
+      border: 1px solid var(--border); border-radius: var(--r);
+      padding: .9rem 1.1rem; margin-bottom: 1.75rem;
+    }
+    .emg-dispatcher-title {
+      font-size: .67rem; font-weight: 600;
+      color: var(--text-3); text-transform: uppercase;
+      letter-spacing: .1em; margin-bottom: .58rem;
+    }
+    .emg-dispatcher ul { list-style: none; display: flex; flex-direction: column; gap: .35rem; }
+    .emg-dispatcher li {
+      font-size: .84rem; color: var(--text-2);
+      display: flex; align-items: flex-start; gap: .48rem;
+    }
+    .emg-dispatcher li::before { content: '·'; color: var(--danger); font-size: 1rem; line-height: 1.4; flex-shrink: 0; }
+
+    .emg-back {
+      background: none; border: none;
+      color: var(--text-3); font-size: .82rem;
+      cursor: pointer; text-decoration: underline;
+      font-family: 'DM Sans', sans-serif; padding: .5rem;
+    }
+    .emg-back:hover { color: var(--text-2); }
+
+    /* ══════════════════════════════════════════════
+       MAIN APP
+    ══════════════════════════════════════════════ */
+    #main-app {
+      height: 100dvh; flex-direction: column; overflow: hidden;
+      animation: edgeGlow 4s ease-in-out infinite;
+    }
+
+    #alert-banner {
+      display: none;
+      background: linear-gradient(135deg, #2e0d0d, #4a1212);
+      border-bottom: 1px solid rgba(192,82,82,.3);
+      color: #f5b8b8; text-align: center;
+      padding: .55rem 1rem; font-size: .82rem; font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* ── Header ─────────────────────────────────── */
+    .app-header {
+      display: flex; align-items: center;
+      padding: 0 1.1rem;
+      padding-top: env(safe-area-inset-top, 0px);
+      height: calc(var(--header-h) + env(safe-area-inset-top, 0px));
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      flex-shrink: 0; gap: .75rem;
+    }
+    .header-center {
+      flex: 1; display: flex; align-items: center;
+      gap: .75rem; overflow: hidden;
+    }
+    .header-logo {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.05rem; color: var(--text);
+      white-space: nowrap; cursor: pointer; letter-spacing: -.015em;
+    }
+    .header-ecg {
+      flex: 1; height: 17px; max-width: 150px;
+      color: var(--teal); opacity: .55; overflow: visible;
+    }
+    .ecg-base { opacity: .15; }
+    .ecg-anim {
+      stroke-dasharray: 40 213;
+      animation: ecgSweep 1.4s linear infinite;
+    }
+
+    /* ── App body (swipe container on mobile) ─── */
+    .app-body {
+      display: flex; flex: 1;
+      overflow: hidden; min-height: 0;
+    }
+
+    /* ── Chat panel ─────────────────────────────── */
+    .chat-panel {
+      flex: 1; display: flex;
+      flex-direction: column; min-width: 0;
+    }
+
+    .messages-area {
+      flex: 1; overflow-y: auto;
+      padding: 1.2rem 1rem 1rem;
+      display: flex; flex-direction: column; gap: .7rem;
+      scroll-behavior: smooth;
+    }
+    .messages-area::-webkit-scrollbar { width: 3px; }
+    .messages-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .msg-row { display: flex; align-items: flex-end; gap: .42rem; }
+    .msg-row.user { justify-content: flex-end; }
+    .msg-row.ai   { justify-content: flex-start; }
+
+    .ai-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--teal); opacity: .5;
+      flex-shrink: 0; margin-bottom: .3rem;
+    }
+
+    .bubble {
+      max-width: min(78%, 320px);
+      padding: .68rem .98rem;
+      font-size: .93rem; line-height: 1.62;
+      animation: bubbleIn .2s ease both;
+    }
+    .bubble.user {
+      background: rgba(58,184,164,.11);
+      border: 1px solid rgba(58,184,164,.2);
+      border-radius: var(--r) var(--r) 4px var(--r);
+    }
+    .bubble.ai {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 2px solid rgba(58,184,164,.22);
+      border-radius: var(--r) var(--r) var(--r) 4px;
+    }
+
+    .typing-dots { display: inline-flex; gap: 4px; align-items: center; padding: .22rem 0; }
+    .typing-dots span {
+      width: 5px; height: 5px;
+      background: var(--text-2); border-radius: 50%;
+      animation: dotBounce 1.2s ease-in-out infinite;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+
+    /* ── Quick chips — 3 pills, horizontal ──────── */
+    .quick-area {
+      padding: .6rem 1rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+    }
+    .quick-label {
+      font-size: .63rem; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: .1em; margin-bottom: .42rem;
+    }
+    .quick-row {
+      display: flex; gap: .45rem;
+    }
+    .qbtn {
+      flex: 1;
+      background: rgba(255,255,255,.045);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      border-radius: 100px;
+      height: 36px;
+      font-size: .78rem; font-weight: 500;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: -.01em;
+      transition: background .14s, color .14s, border-color .14s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      padding: 0 .6rem;
+    }
+    .qbtn:hover, .qbtn:active {
+      background: var(--teal-glow);
+      border-color: var(--teal-border);
+      color: var(--teal);
+    }
+
+    /* ── Quick tiles (layer 1) ─────────────────── */
+    .quick-tiles { display: flex; flex-direction: column; gap: .45rem; }
+    .qtile {
+      width: 100%;
+      background: rgba(255,255,255,.04);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--r);
+      height: 60px;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      display: flex; align-items: center; gap: .9rem;
+      padding: 0 1rem;
+      text-align: left;
+      transition: background .14s, border-color .14s;
+    }
+    .qtile:hover, .qtile:active {
+      background: var(--teal-glow); border-color: var(--teal-border);
+    }
+    .qtile-icon { font-size: 1.3rem; flex-shrink: 0; }
+    .qtile-text { flex: 1; display: flex; flex-direction: column; }
+    .qtile-title { font-size: .9rem; font-weight: 600; color: var(--text); letter-spacing: -.01em; }
+    .qtile-sub   { font-size: .73rem; color: var(--text-2); margin-top: .05rem; }
+
+    /* ── Emergency action card (in-chat) ────────── */
+    .emg-action-card {
+      width: 100%;
+      background: rgba(192,82,82,.1);
+      border: 1px solid rgba(192,82,82,.28);
+      border-radius: var(--r);
+      padding: .9rem 1rem;
+      display: flex; flex-direction: column; gap: .6rem;
+      margin: .2rem 0;
+    }
+    .emg-action-text {
+      font-size: .84rem; color: #e07070; font-weight: 500; line-height: 1.5;
+    }
+    .emg-action-btn {
+      background: var(--danger); border: none; color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .88rem; font-weight: 700;
+      border-radius: var(--r-sm); padding: .7rem 1rem;
+      cursor: pointer; text-align: center;
+      transition: opacity .14s;
+    }
+    .emg-action-btn:hover  { opacity: .88; }
+    .emg-action-btn:active { opacity: .75; transform: scale(.98); }
+
+    /* ── Emergency reason card (dynamic) ────────── */
+    .emg-reason-card {
+      width: 100%;
+      background: rgba(192,82,82,.08);
+      border: 1px solid rgba(192,82,82,.2);
+      border-radius: var(--r);
+      padding: .9rem 1.1rem;
+      margin-bottom: .9rem;
+    }
+    .emg-reason-label {
+      font-size: .64rem; font-weight: 600;
+      color: rgba(224,112,112,.75);
+      text-transform: uppercase; letter-spacing: .1em;
+      margin-bottom: .38rem;
+    }
+    #emg-reason-text { font-size: .86rem; color: var(--text-2); line-height: 1.62; }
+
+    /* ── Input area ─────────────────────────────── */
+    .input-area {
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+      padding: .7rem 1rem;
+    }
+    .input-row { display: flex; gap: .55rem; align-items: flex-end; }
+    .input-wrap { flex: 1; }
+
+    #user-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: .93rem;
+      padding: .62rem .9rem;
+      resize: none; outline: none; line-height: 1.5;
+      transition: border-color .15s;
+    }
+    #user-input::placeholder { color: var(--text-3); }
+    #user-input:focus { border-color: var(--teal-border); }
+
+    .send-btn {
+      background: var(--teal); border: none;
+      color: #0e1120;
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700; font-size: .86rem;
+      padding: 0 1.2rem; height: 46px;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background .14s, opacity .14s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .send-btn:hover  { background: #4dceba; }
+    .send-btn:active { opacity: .8; transform: scale(.97); }
+
+    /* ── Summary panel ──────────────────────────── */
+    .summary-panel {
+      display: none; /* overridden by media queries */
+      flex-direction: column;
+      background: var(--bg-panel);
+      overflow-y: auto;
+    }
+
+    .panel-hdr {
+      padding: .85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: .63rem; color: var(--text-2);
+      text-transform: uppercase; letter-spacing: .12em;
+      font-weight: 500; flex-shrink: 0;
+    }
+
+    #summary-card { padding: 1rem; flex: 1; }
+
+    /* ── SOAP ──────────────────────────────────── */
+    .soap-section { margin-bottom: .88rem; }
+    .soap-section:last-child { margin-bottom: 0; }
+    .soap-label {
+      font-size: .61rem; font-weight: 600;
+      letter-spacing: .09em; text-transform: uppercase;
+      color: var(--text-3); margin-bottom: .28rem;
+    }
+    .soap-row {
+      display: flex; align-items: baseline;
+      gap: .35rem; margin-bottom: .18rem; flex-wrap: wrap;
+    }
+    .soap-field { font-size: .74rem; color: var(--text-2); flex-shrink: 0; min-width: 4.5rem; }
+    .soap-val   { font-size: .84rem; flex: 1; }
+    .soap-val.sev-1, .soap-val.sev-2 { color: var(--success); }
+    .soap-val.sev-3, .soap-val.sev-4 { color: var(--amber); }
+    .soap-val.sev-5 { color: var(--danger); }
+
+    .ev-chip {
+      font-size: .61rem; padding: .07rem .36rem;
+      border: 1px solid var(--teal-border); border-radius: 20px;
+      color: var(--teal); background: none; cursor: pointer;
+      flex-shrink: 0; transition: background .14s;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ev-chip:hover { background: var(--teal-glow); }
+
+    .highlight-flash { animation: flashHighlight 2.2s ease; }
+
+    .summary-placeholder {
+      color: var(--text-3); font-size: .82rem;
+      text-align: center; padding: 2.5rem 0;
+      display: flex; flex-direction: column;
+      align-items: center; gap: .5rem;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px;
+      background: var(--teal); border-radius: 50%;
+      animation: pulseDot 2s ease-in-out infinite;
+    }
+
+    .sev-badge {
+      border-radius: var(--r-sm); padding: .42rem .72rem;
+      font-size: .82rem; font-weight: 600; margin-bottom: .72rem;
+      display: flex; align-items: center; gap: .5rem;
+    }
+    .sev-1 { background: rgba(74,170,127,.14); color: var(--success); border: 1px solid rgba(74,170,127,.24); }
+    .sev-2 { background: rgba(212,133,90,.12);  color: var(--amber);   border: 1px solid rgba(212,133,90,.24); }
+    .sev-3 { background: rgba(212,133,90,.18);  color: #cf7e52;        border: 1px solid rgba(212,133,90,.34); }
+    .sev-4 { background: rgba(192,82,82,.14);   color: #cc6060;        border: 1px solid rgba(192,82,82,.28); }
+    .sev-5 { background: rgba(192,82,82,.22);   color: #e07070;        border: 1px solid rgba(192,82,82,.4);  }
+
+    .data-row { margin-bottom: .58rem; padding-bottom: .58rem; border-bottom: 1px solid var(--border); }
+    .data-label { font-size: .65rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: .1rem; }
+    .data-value { font-size: .86rem; color: var(--text); font-weight: 500; }
+
+    .advice-box {
+      background: var(--teal-glow); border: 1px solid var(--teal-border);
+      border-radius: var(--r-sm); padding: .62rem .84rem;
+      font-size: .82rem; color: #7dd8cb; line-height: 1.58; margin-top: .72rem;
+    }
+
+    /* ── FHIR ───────────────────────────────────── */
+    #fhir-section { border-top: 1px solid var(--border); padding: .72rem 1rem 1rem; }
+
+    .fhir-toggle {
+      width: 100%; background: none;
+      border: 1px solid var(--border); border-radius: var(--r-sm);
+      color: var(--text-3); font-size: .7rem;
+      font-family: 'DM Sans', sans-serif;
+      padding: .42rem .72rem; cursor: pointer;
+      display: flex; justify-content: space-between; align-items: center;
+      transition: border-color .14s; min-height: 34px;
+    }
+    .fhir-toggle:hover { border-color: var(--border-2); color: var(--text-2); }
+
+    #fhir-content { margin-top: .52rem; }
+    #fhir-json {
+      background: #090c14; border: 1px solid var(--border); border-radius: var(--r-sm);
+      padding: .72rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .66rem; color: #7ab8c0;
+      white-space: pre-wrap; word-break: break-all;
+      line-height: 1.6; max-height: 250px; overflow-y: auto;
+    }
+    .copy-btn {
+      width: 100%; margin-top: .42rem; background: none;
+      border: 1px solid var(--teal-border); border-radius: var(--r-sm);
+      color: var(--teal); font-size: .7rem;
+      font-family: 'DM Sans', sans-serif;
+      padding: .4rem; cursor: pointer;
+      transition: background .14s; min-height: 32px;
+    }
+    .copy-btn:hover { background: var(--teal-glow); }
+
+    /* ── Tab bar — Apple-style sliding indicator ── */
+    .tab-bar {
+      display: none; /* shown on mobile only */
+      flex-shrink: 0;
+      height: calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      /* Frosted glass — iOS feel */
+      background: rgba(14,17,32,.88);
+      backdrop-filter: saturate(180%) blur(16px);
+      -webkit-backdrop-filter: saturate(180%) blur(16px);
+      border-top: 1px solid rgba(255,255,255,.06);
+      position: relative;
+    }
+
+    .tab-btn {
+      flex: 1; height: var(--tab-h);
+      display: flex; flex-direction: row;
+      align-items: center; justify-content: center;
+      gap: .38rem;
+      background: none; border: none;
+      color: var(--text-3);
+      font-family: 'DM Sans', sans-serif;
+      font-size: .8rem; font-weight: 500;
+      letter-spacing: -.01em;
+      cursor: pointer;
+      transition: color .2s;
+      position: relative;
+    }
+    .tab-btn.active { color: var(--teal); }
+
+    /* Sliding indicator line */
+    .tab-indicator {
+      position: absolute;
+      bottom: 0; left: 0;
+      width: 50%; height: 2px;
+      background: var(--teal);
+      border-radius: 1px 1px 0 0;
+      will-change: transform;
+      /* No CSS transition — JS animates it via scroll sync */
+    }
+
+    /* Unread dot on summary tab */
+    .tab-dot {
+      width: 6px; height: 6px;
+      background: var(--danger); border-radius: 50%;
+      border: 1.5px solid rgba(14,17,32,.88);
+      position: absolute; top: 10px; right: calc(50% - 24px);
+      animation: tabDotIn .18s ease both;
+    }
+
+    /* ══════════════════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════════════════ */
+
+    /* Gateway mobile: anchor content toward top instead of center */
+    @media (max-width: 859px) {
+      #gateway {
+        justify-content: flex-start;
+        padding-top: calc(env(safe-area-inset-top, 0px) + 14vh);
+      }
+    }
+
+    /* Desktop: side-by-side panels, no tab bar */
+    @media (min-width: 768px) {
+      .summary-panel {
+        display: flex !important;
+        width: 292px; flex-shrink: 0;
+        border-left: 1px solid var(--border);
+      }
+      .tab-bar { display: none !important; }
+    }
+
+    /* Mobile: swipeable horizontal panels + tab bar */
+    @media (max-width: 767px) {
+      .tab-bar { display: flex; }
+      .header-ecg { max-width: 72px; opacity: .4; }
+
+      /* Make app-body a horizontal scroll container */
+      .app-body {
+        overflow-x: scroll;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .app-body::-webkit-scrollbar { display: none; }
+
+      /* Both panels are always in DOM, side by side */
+      .chat-panel {
+        flex: 0 0 100%;
+        scroll-snap-align: start;
+        display: flex !important;
+      }
+      .summary-panel {
+        display: flex !important;
+        flex: 0 0 100%;
+        width: auto;
+        border-left: none;
+        overflow-y: auto;
+        scroll-snap-align: start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ GATEWAY ══════════════ -->
+<div id="gateway" class="page active">
+  <div class="gateway-inner">
+
+    <div class="gateway-brand">
+      <div class="gateway-logo">
+        <h1>Ortho<em>Compass</em></h1>
+        <svg class="logo-ecg" viewBox="0 0 240 26" fill="none">
+          <path class="ecg-base-logo"
+            d="M0,13 L42,13 L46,13 L48,10 L51,3 L54,19 L57,13 L70,13 L75,8 L80,4 L85,8 L90,13 L132,13 L136,13 L138,10 L141,3 L144,19 L147,13 L160,13 L165,8 L170,4 L175,8 L180,13 L240,13"
+            stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <path class="ecg-pulse-logo"
+            d="M0,13 L42,13 L46,13 L48,10 L51,3 L54,19 L57,13 L70,13 L75,8 L80,4 L85,8 L90,13 L132,13 L136,13 L138,10 L141,3 L144,19 L147,13 L160,13 L165,8 L170,4 L175,8 L180,13 L240,13"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+        <p class="gateway-tagline">急性外傷初步評估 · HL7 FHIR R4</p>
+      </div>
+      <p class="gateway-brand-desc">說說你的傷況，我幫你評估嚴重程度，決定下一步怎麼做。</p>
+    </div>
+
+    <div class="gateway-actions">
+      <p class="gateway-prompt">你目前的狀況是？</p>
+
+      <button class="triage-card emergency">
+        <div class="card-icon">🚨</div>
+        <div class="card-text">
+          <div class="card-title">情況非常緊急</div>
+          <div class="card-desc">大量出血 · 意識不清 · 骨頭外露 · 無法呼吸</div>
+        </div>
+      </button>
+
+      <button class="triage-card assess">
+        <div class="card-icon">◎</div>
+        <div class="card-text">
+          <div class="card-title">受傷了，但意識清楚</div>
+          <div class="card-desc">想先了解傷況，評估是否需要就醫</div>
+        </div>
+      </button>
+
+      <p class="gateway-disclaimer">
+        本工具僅提供初步症狀引導，不構成醫療診斷<br>
+        緊急情況請立即撥打 119
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div id="main-app" class="page">
+
+  <div id="alert-banner">
+    ⚠️ 根據你描述的狀況，建議立即聯絡 119 或請旁人協助送醫
+  </div>
+
+  <header class="app-header">
+    <div class="header-center">
+      <span class="header-logo" onclick="goBack()" title="回首頁">OrthoCompass</span>
+      <svg class="header-ecg" viewBox="0 0 200 18" fill="none" aria-hidden="true">
+        <path class="ecg-base"
+          d="M0,9 L28,9 L31,9 L33,6 L36,1 L39,16 L42,9 L54,9 L59,5 L63,2 L67,5 L71,9 L103,9 L106,9 L108,6 L111,1 L114,16 L117,9 L129,9 L134,5 L138,2 L142,5 L146,9 L200,9"
+          stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <path class="ecg-anim"
+          d="M0,9 L28,9 L31,9 L33,6 L36,1 L39,16 L42,9 L54,9 L59,5 L63,2 L67,5 L71,9 L103,9 L106,9 L108,6 L111,1 L114,16 L117,9 L129,9 L134,5 L138,2 L142,5 L146,9 L200,9"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+    <span id="turn-counter" style="display:none"></span>
+  </header>
+
+  <div class="app-body">
+
+    <!-- Chat panel -->
+    <div class="chat-panel">
+      <div id="chat-messages" class="messages-area"></div>
+
+      <div id="quick-buttons" class="quick-area">
+        <div id="quick-layer-1" class="quick-tiles">
+          <button class="qtile" onclick="quickSelect('扭傷拉傷')">
+            <span class="qtile-icon">🦵</span>
+            <div class="qtile-text">
+              <span class="qtile-title">扭傷拉傷</span>
+              <span class="qtile-sub">腳踝、膝蓋、手腕扭傷</span>
+            </div>
+          </button>
+          <button class="qtile" onclick="quickSelect('撞傷跌倒')">
+            <span class="qtile-icon">💥</span>
+            <div class="qtile-text">
+              <span class="qtile-title">撞傷跌倒</span>
+              <span class="qtile-sub">跌倒、碰撞、衝擊挫傷</span>
+            </div>
+          </button>
+          <button class="qtile" onclick="quickSelect('運動傷害')">
+            <span class="qtile-icon">🤸</span>
+            <div class="qtile-text">
+              <span class="qtile-title">運動傷害</span>
+              <span class="qtile-sub">肌肉拉傷、韌帶、反覆使用</span>
+            </div>
+          </button>
+        </div>
+        <div id="quick-layer-2" class="quick-row" style="display:none;">
+          <button class="qbtn" onclick="quickSelect('很痛但還能稍微動')">還能稍微動</button>
+          <button class="qbtn" onclick="quickSelect('痛到完全不敢動')">完全不敢動</button>
+          <button class="qbtn" onclick="quickSelect('患部腫起來了')">腫起來了</button>
+        </div>
+        <div id="quick-layer-demo" class="quick-tiles" style="display:none;"></div>
+      </div>
+
+      <div class="input-area">
+        <div class="input-row">
+          <div class="input-wrap">
+            <textarea id="user-input" rows="2"
+              placeholder="請描述你的傷況..."
+              maxlength="200"></textarea>
+          </div>
+          <button class="send-btn" onclick="sendMessage()">送出</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary panel -->
+    <div class="summary-panel">
+      <div class="panel-hdr">初步評估摘要</div>
+      <div id="summary-card">
+        <div class="summary-placeholder">
+          <div class="pulse-dot"></div>
+          評估進行中
+        </div>
+      </div>
+      <div id="fhir-section" style="display:none;">
+        <button class="fhir-toggle" onclick="toggleFhir()">
+          <span>FHIR R4 JSON（供醫護使用）</span>
+          <span id="fhir-toggle-icon">▼</span>
+        </button>
+        <div id="fhir-content" style="display:none;">
+          <pre id="fhir-json"></pre>
+          <button class="copy-btn" onclick="copyFhir()">複製 JSON</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tab bar (mobile only) — Apple-style with sliding indicator -->
+  <nav class="tab-bar" role="tablist">
+    <button class="tab-btn active" data-tab="chat" onclick="switchTab('chat')" role="tab">
+      對話
+    </button>
+    <button class="tab-btn" data-tab="summary" onclick="switchTab('summary')" role="tab">
+      評估摘要
+      <span class="tab-dot" id="summary-dot" style="display:none"></span>
+    </button>
+    <div class="tab-indicator" id="tab-indicator"></div>
+  </nav>
+
+</div>
+
+<!-- ══════════════ EMERGENCY ══════════════ -->
+<div id="emergency-page" class="page">
+  <div class="emg-inner">
+
+    <div class="emg-pulse-wrap">
+      <div class="emg-ring"></div>
+      <div class="emg-ring"></div>
+      <div class="emg-ring"></div>
+      <div class="emg-icon">🚨</div>
+    </div>
+
+    <h2>請立即撥打 119</h2>
+
+    <a href="tel:119" class="call-btn">
+      <span>📞</span><span>撥打 119</span>
+    </a>
+
+    <div id="emg-reason" class="emg-reason-card" style="display:none;">
+      <div class="emg-reason-label">AI 評估原因</div>
+      <p id="emg-reason-text"></p>
+    </div>
+
+    <div class="emg-section">
+      <div class="emg-section-title">等待時，請這樣做</div>
+      <div class="emg-step">
+        <span class="step-num">1</span>
+        <span>保持冷靜，讓傷者在安全位置停留，避免不必要的移動</span>
+      </div>
+      <div class="emg-step" id="emg-step2">
+        <span class="step-num">2</span>
+        <span id="emg-step2-text">有出血 → 用乾淨布料用力持續壓住，不要放開</span>
+      </div>
+      <div class="emg-step">
+        <span class="step-num">3</span>
+        <span>打開手機定位，確認你在哪裡（地址或附近地標）</span>
+      </div>
+      <div class="emg-step">
+        <span class="step-num">4</span>
+        <span>有旁人的話，請他去路口等待救護車引路</span>
+      </div>
+    </div>
+
+    <div class="emg-dispatcher">
+      <div class="emg-dispatcher-title">調度員接通後會問你</div>
+      <ul>
+        <li>你在哪裡？（地址或附近地標）</li>
+        <li>發生什麼事了？</li>
+        <li>傷者目前清醒嗎？</li>
+      </ul>
+    </div>
+
+    <button class="emg-back" onclick="goBack()">返回首頁</button>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
