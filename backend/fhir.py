@@ -41,14 +41,23 @@ def build_fhir_bundle(data: dict) -> dict:
         "component": components,
     }
 
+    entries = [{"resource": condition}, {"resource": observation}]
+
+    for site in (data.get("additional_sites") or []):
+        entries.append({"resource": {
+            "resourceType": "Condition",
+            "clinicalStatus": condition["clinicalStatus"],
+            "verificationStatus": condition["verificationStatus"],
+            "bodySite": [{"text": site}],
+            "note": [{"text": "Additional injury site — awaiting full assessment"}],
+            "recordedDate": now,
+        }})
+
     return {
         "resourceType": "Bundle",
         "type": "collection",
         "timestamp": now,
-        "entry": [
-            {"resource": condition},
-            {"resource": observation},
-        ],
+        "entry": entries,
     }
 
 
@@ -78,5 +87,6 @@ def build_summary_card(data: dict, evidence: dict = None) -> dict:
         "special_tests":       data.get("special_tests") or [],
         "neuro_intact":        data.get("neuro_intact"),
         "red_flags":           data.get("red_flags") or [],
+        "additional_sites":    data.get("additional_sites") or [],
         "evidence":            evidence or {},
     }

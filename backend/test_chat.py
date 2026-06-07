@@ -47,7 +47,8 @@ JSON_SYSTEM = """你是結構化資料萃取器。根據對話內容回傳評估
   "ottawa_result": "negative/positive/untested",
   "special_tests": ["Empty Can Test: positive", "Ottawa Ankle Rules: negative"],
   "neuro_intact": true/false/null,
-  "red_flags": ["head_trauma_vomiting", "unable_to_weight_bear", "bone_exposure", "neuro_deficit"]
+  "red_flags": ["head_trauma_vomiting", "unable_to_weight_bear", "bone_exposure", "neuro_deficit"],
+  "additional_sites": ["Left knee", "Right wrist"]
 }"""
 
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
